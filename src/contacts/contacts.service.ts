@@ -11,7 +11,7 @@ export class ContactService {
   ) {}
 
   async getContacts(): Promise<Contact[]> {
-    const data = await this.contactRepository.find();
+    const data = await this.contactRepository.find({ order: { id: 'ASC' }});
     return data;
   }
 
@@ -28,7 +28,7 @@ export class ContactService {
       },
       where: [{ phoneNumber: data.phoneNumber }, { email: data.email }],
       order: {
-        id: 'DESC',
+        id: 'ASC',
       },
     });
 
@@ -59,16 +59,46 @@ export class ContactService {
     // records are already sorted by id
     const primaryRecord = commonRecords[0];
     const secondaryRecords = commonRecords.slice(1);
+    const promises = [];
 
-    await this.contactRepository.update(primaryRecord.id, {
-      linkPrecedence: 'primary',
-    });
+    promises.push(
+      this.contactRepository.update(primaryRecord.id, {
+        linkPrecedence: 'primary',
+        linkedId: null,
+      }),
+    );
 
-    await this.contactRepository
-      .createQueryBuilder()
-      .update(Contact)
-      .set({ linkPrecedence: 'secondary', linkedId: primaryRecord.id })
-      .where({ id: In(secondaryRecords.map((ele) => ele.id)) })
-      .execute();
+    // update the existing records to point to the new primary
+    promises.push(
+      this.contactRepository
+        .createQueryBuilder()
+        .update()
+        .set({ linkPrecedence: 'secondary', linkedId: primaryRecord.id })
+        .where({ id: In(secondaryRecords.map((ele) => ele.id)) })
+        .execute(),
+    );
+
+    // only one case left to handle, if there's two primary records. And a third
+    // comes with information from both, we don't need to insert the new one as there
+    // is no new information.
+    // solution: only insert new info when there is some new email or phone not existing.
+    const existingPhone =
+      commonRecords.filter((ele) => ele.phoneNumber === data.phoneNumber)
+        .length > 0;
+    const existingEmail =
+      commonRecords.filter((ele) => ele.email === data.email).length > 0;
+
+    if (!existingPhone || !existingEmail) {
+      const contact = this.contactRepository.create({
+        phoneNumber: data.phoneNumber,
+        email: data.email,
+        linkedId: primaryRecord.id,
+        linkPrecedence: 'secondary',
+      });
+
+      await this.contactRepository.save(contact);
+    }
+
+    return 'success';
   }
 }
