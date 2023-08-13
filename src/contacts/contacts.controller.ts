@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Post } from '@nestjs/common';
 import { IdentityDto } from './contacts.dto';
 import { ContactService } from './contacts.service';
 
@@ -19,5 +19,10 @@ export class ContactController {
   @Post('/checkout')
   async checkout(@Body() body: IdentityDto) {
     await this.contactService.insertCheckoutRecord(body);
+  }
+
+  @Delete('/db')
+  async clearDbData() {
+    return this.contactService.clearDb();
   }
 }

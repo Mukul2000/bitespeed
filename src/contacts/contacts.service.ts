@@ -162,4 +162,9 @@ export class ContactService {
 
     return res;
   }
+
+  async clearDb() {
+    await this.contactRepository.delete({});
+    return 'OK';
+  }
 }
