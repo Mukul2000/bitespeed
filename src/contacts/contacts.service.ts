@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { In, Repository } from 'typeorm';
 import { Contact } from './contacts.entity/contacts.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { identityDto } from './contacts.dto';
+import { IdentityDto, IdentityResponseDto } from './contacts.dto';
 
 @Injectable()
 export class ContactService {
@@ -11,11 +11,11 @@ export class ContactService {
   ) {}
 
   async getContacts(): Promise<Contact[]> {
-    const data = await this.contactRepository.find({ order: { id: 'ASC' }});
+    const data = await this.contactRepository.find({ order: { id: 'ASC' } });
     return data;
   }
 
-  async insertCheckoutRecord(data: identityDto): Promise<string> {
+  async insertCheckoutRecord(data: IdentityDto): Promise<string> {
     // can add validations for phone and email optionally, skipping for now.
 
     const commonRecords = await this.contactRepository.find({
@@ -100,5 +100,51 @@ export class ContactService {
     }
 
     return 'success';
+  }
+
+  async identify(data: IdentityDto): Promise<IdentityResponseDto> {
+    const records = await this.contactRepository.find({
+      select: {
+        id: true,
+        phoneNumber: true,
+        email: true,
+        linkedId: true,
+        linkPrecedence: true,
+      },
+      where: [{ phoneNumber: data.phoneNumber }, { email: data.email }],
+      order: {
+        id: 'ASC',
+      },
+    });
+
+    const linkedRecords = await this.contactRepository.find({
+      select: {
+        id: true,
+        phoneNumber: true,
+        email: true,
+        linkedId: true,
+        linkPrecedence: true,
+      },
+      where: { linkedId: records[0].id, linkPrecedence: 'secondary' },
+    });
+
+    const primaryRecord = records[0];
+    const secondaryRecords: Contact[] = [
+      ...records.slice(1),
+      ...linkedRecords,
+    ].sort((a: Contact, b: Contact) => a.id - b.id);
+
+    console.log('secondarty: ', secondaryRecords);
+    const res: IdentityResponseDto = {
+      primaryContactId: primaryRecord.id,
+      emails: [
+        primaryRecord.email,
+        ...secondaryRecords.map((ele) => ele.email),
+      ],
+      phoneNumbers: secondaryRecords.map((ele) => ele.phoneNumber),
+      secondaryContactIds: secondaryRecords.map((ele) => ele.id).slice(1),
+    };
+
+    return res;
   }
 }

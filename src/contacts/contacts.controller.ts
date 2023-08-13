@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import { identityDto } from './contacts.dto';
+import { IdentityDto } from './contacts.dto';
 import { ContactService } from './contacts.service';
 
 @Controller()
@@ -12,10 +12,12 @@ export class ContactController {
   }
 
   @Post('/identify')
-  async identify(@Body() body: identityDto) {}
+  async identify(@Body() body: IdentityDto) {
+    return this.contactService.identify(body);
+  }
 
   @Post('/checkout')
-  async checkout(@Body() body: identityDto) {
+  async checkout(@Body() body: IdentityDto) {
     await this.contactService.insertCheckoutRecord(body);
   }
 }
