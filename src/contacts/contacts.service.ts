@@ -10,6 +10,11 @@ export class ContactService {
     @InjectRepository(Contact) private contactRepository: Repository<Contact>,
   ) {}
 
+  async getContacts(): Promise<Contact[]> {
+    const data = await this.contactRepository.find();
+    return data;
+  }
+
   async insertCheckoutRecord(data: identityDto): Promise<string> {
     // can add validations for phone and email optionally, skipping for now.
 
