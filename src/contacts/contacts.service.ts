@@ -103,7 +103,7 @@ export class ContactService {
   }
 
   async identify(data: IdentityDto): Promise<IdentityResponseDto> {
-    const records = await this.contactRepository.find({
+    const matchingRecords = await this.contactRepository.find({
       select: {
         id: true,
         phoneNumber: true,
@@ -117,31 +117,46 @@ export class ContactService {
       },
     });
 
-    const linkedRecords = await this.contactRepository.find({
-      select: {
-        id: true,
-        phoneNumber: true,
-        email: true,
-        linkedId: true,
-        linkPrecedence: true,
-      },
-      where: { linkedId: records[0].id, linkPrecedence: 'secondary' },
-    });
+    const linkedRecords =
+      matchingRecords && matchingRecords.length
+        ? await this.contactRepository.find({
+            select: {
+              id: true,
+              phoneNumber: true,
+              email: true,
+              linkedId: true,
+              linkPrecedence: true,
+            },
+            where: [
+              { id: matchingRecords[0].linkedId }, // if querying by a secondary record
+              { linkedId: matchingRecords[0].id }, // if querying by a primary record
+            ],
+          })
+        : [];
 
-    const primaryRecord = records[0];
-    const secondaryRecords: Contact[] = [
-      ...records.slice(1),
-      ...linkedRecords,
-    ].sort((a: Contact, b: Contact) => a.id - b.id);
+    // we sort by id and ensure primary record comes first. ( we mantain this with insertion )
+    const records = [...linkedRecords, ...matchingRecords].sort(
+      (a: Contact, b: Contact) => a.id - b.id,
+    );
 
-    console.log('secondarty: ', secondaryRecords);
+    const primaryRecord =
+      records && records.length
+        ? records[0]
+        : { id: null, email: null, phoneNumber: null };
+
+    console.log('primaryRecord: ', primaryRecord);
+    const secondaryRecords: Contact[] = records.slice(1);
+
     const res: IdentityResponseDto = {
       primaryContactId: primaryRecord.id,
       emails: [
         primaryRecord.email,
         ...secondaryRecords.map((ele) => ele.email),
       ],
-      phoneNumbers: secondaryRecords.map((ele) => ele.phoneNumber),
+      phoneNumbers: [
+        primaryRecord.phoneNumber,
+        ...secondaryRecords.map((ele) => ele.phoneNumber),
+      ],
       secondaryContactIds: secondaryRecords.map((ele) => ele.id).slice(1),
     };
 
