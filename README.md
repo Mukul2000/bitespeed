@@ -17,6 +17,9 @@ I have used -
 3. TypeORM
 4. SQLite ( simplest tool that does the job for this task ).
 
+**Hosted at:** https://bitespeed-task-owc1.onrender.com
+**created by:** Mukul Singh
+
 ## Pointers for the code
 
 You'll **find all the relevant code in contacts folder** ( module in NestJS ).
