@@ -58,13 +58,13 @@ We can keep an inverted index for phone and email. So the data for identify endp
 
 Index can be like this -
 phoneNumber:
-"2249": [ <contact row id1>, <contact row id2> ... ],
+"2249": [ id1, id2, ... ],
 "246788": ....
 
 Similary for emails.
 
 I believe this should speed up the performance of the identify endpoint greatly.
-
+Apologies if I overlooked anything in this crude solution. Thanks.
 
 
 
