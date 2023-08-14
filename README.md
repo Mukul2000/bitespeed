@@ -1,73 +1,75 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+# Bitespeed Assignment
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Hi, this is the repo for bitespeed backend task. Please read this before evaluating the submission as it will streamline the process.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+There are 4 endpoints I have created - 
+1. POST /identify --> assignment requirement
+2. GET /contacts --> utility endpoint to see all the data in the db.
+3. POST /checkout --> Endpoint to add new checkout / contact rows. This is where the logic is to assign primary and secondary contacts.
+4. DELETE /db --> Utility endpoint for the evaluator, they can start from a clean slate when evaluating edge cases each time.
 
-## Description
+The associated Postman / Insomnia collection has been attached. named Insomnia_2023-08-14.json.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## The stack
+I have used - 
+1. NestJS Framework ( Fancy Node.js, I use this at work so I am comfortable using it )
+2. Typescript
+3. TypeORM
+4. SQLite ( simplest tool that does the job for this task ).
 
-## Installation
+## Pointers for the code
 
-```bash
-$ npm install
-```
+You'll **find all the relevant code in contacts folder** ( module in NestJS ).
+- Entity file will contain the schema description with typeORM.
+- All API endpoints will be in controller file.
+- All business logic resides in contact.service.ts file.
 
-## Running the app
 
-```bash
-# development
-$ npm run start
+## The logic
+I believe the code is fairly well commented and logic should not be too difficult, but I will provide my thought process in short here.
 
-# watch mode
-$ npm run start:dev
+The task can be broken down into 2 sections: 
+1. The producer ( where the checkout details are received and the data inserted into the db )
+2. The consumer ( POST /identify endpoint ).
 
-# production mode
-$ npm run start:prod
-```
+### The producer
 
-## Test
+When I receive any data ( phone or email ) I basically query the db for any records matching either the phone or email.
+A few cases emerge -
+1. If there are no existing records in db, this is a new primary contact.
+2. Check for exact match for the data received in DB. If there is one, the new checkout doesn't contain any new information and no db inserts happen.
+3. In the last case, we either have some new info, or the information we received links two records together. We make the necessary changed in the db. We always make sure **oldest record becomes the primary.**
 
-```bash
-# unit tests
-$ npm run test
+### The consumer
+We receive the input data ( phone or email ).
+1. Fetch records which have same phone or email in sorted order by id.
+2. Fetch all records which are -
+    a. Having id as linkedId ( In the case identify endpoint receives data of a secondary end point )
+    b. Having linkedId equal to first record in point 1 ( Oldest is the  primary )
+3. Then we sort this data and form our response structure.
 
-# e2e tests
-$ npm run test:e2e
 
-# test coverage
-$ npm run test:cov
-```
+I have tried to optimise this in what little time I had. I assume this is probably an internal endpoint and doesn't need tons of optimisations in the time given. Nevertheless, I found the problem interesting and would love to discuss how it has been solved at Bitespeed.
 
-## Support
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Afterthoughts / Other solutions I thought out
 
-## Stay in touch
+We can keep an inverted index for phone and email. So the data for identify endpoint will come from that.
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Index can be like this -
+phoneNumber:
+"2249": [ <contact row id1>, <contact row id2> ... ],
+"246788": ....
 
-## License
+Similary for emails.
 
-Nest is [MIT licensed](LICENSE).
+I believe this should speed up the performance of the identify endpoint greatly.
+
+
+
+
+
+
+
+Thanks for your time in evaluating this, looking forward to hearing from you.
+
