@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { In, Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { Contact } from './contacts.entity/contacts.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IdentityDto, IdentityResponseDto } from './contacts.dto';
@@ -117,22 +117,24 @@ export class ContactService {
       },
     });
 
-    const linkedRecords =
-      matchingRecords && matchingRecords.length
-        ? await this.contactRepository.find({
-            select: {
-              id: true,
-              phoneNumber: true,
-              email: true,
-              linkedId: true,
-              linkPrecedence: true,
-            },
-            where: [
-              { id: matchingRecords[0].linkedId }, // if querying by a secondary record
-              { linkedId: matchingRecords[0].id }, // if querying by a primary record
-            ],
-          })
-        : [];
+    let linkedRecords: any | any[] = [];
+
+    if (matchingRecords && matchingRecords.length) {
+      // I know bad code in this block
+      const placeholders = matchingRecords
+        .map((_, index) => `$${index + 4}`)
+        .join(', ');
+
+      const sql = `select id, phoneNumber, email, linkedId, linkPrecedence from contact
+        where (id = $1 or linkedId = $2) and id not in (${placeholders})`;
+      const params = [
+        matchingRecords[0].linkedId,
+        matchingRecords[0].id,
+        ...matchingRecords.map((ele) => ele.id),
+      ];
+
+      linkedRecords = await this.contactRepository.query(sql, params);
+    }
 
     // we sort by id and ensure primary record comes first. ( we mantain this with insertion )
     const records = [...linkedRecords, ...matchingRecords].sort(
@@ -144,19 +146,22 @@ export class ContactService {
         ? records[0]
         : { id: null, email: null, phoneNumber: null };
 
-    console.log('primaryRecord: ', primaryRecord);
     const secondaryRecords: Contact[] = records.slice(1);
+
+    const secondaryEmails = [];
+    const secondaryNumbers = [];
+
+    for (let i = 0; i < secondaryRecords.length; i += 1) {
+      if (secondaryRecords[i].email !== primaryRecord.email)
+        secondaryEmails.push(secondaryRecords[i].email);
+      if (secondaryRecords[i].phoneNumber !== primaryRecord.phoneNumber)
+        secondaryNumbers.push(secondaryRecords[i].phoneNumber);
+    }
 
     const res: IdentityResponseDto = {
       primaryContactId: primaryRecord.id,
-      emails: [
-        primaryRecord.email,
-        ...secondaryRecords.map((ele) => ele.email),
-      ],
-      phoneNumbers: [
-        primaryRecord.phoneNumber,
-        ...secondaryRecords.map((ele) => ele.phoneNumber),
-      ],
+      emails: [primaryRecord.email, ...secondaryEmails],
+      phoneNumbers: [primaryRecord.phoneNumber, ...secondaryNumbers],
       secondaryContactIds: secondaryRecords.map((ele) => ele.id),
     };
 
