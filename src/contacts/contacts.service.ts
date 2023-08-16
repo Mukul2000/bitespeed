@@ -157,7 +157,7 @@ export class ContactService {
         primaryRecord.phoneNumber,
         ...secondaryRecords.map((ele) => ele.phoneNumber),
       ],
-      secondaryContactIds: secondaryRecords.map((ele) => ele.id).slice(1),
+      secondaryContactIds: secondaryRecords.map((ele) => ele.id),
     };
 
     return res;
